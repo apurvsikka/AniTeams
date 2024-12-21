@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Manga Reader</title
+        <link rel="stylesheet" href="../common.css"/>
+        <link rel="stylesheet" href="reader.css"/>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Varela+Round&display=swap&family=Josefin+Sans:ital,wght@0,100..700;1,100..700&family=Teko:wght@500&display=swap" rel="stylesheet">
+    <body>
+        <nav class="mangaOptions" id="mangaOptions">
+            <div class="chapterList">
+                <button class="viewChList" onclick="document.getElementById('sidebar').style.display = 'block';">Chapters</button>
+            </div>
+            <div class="mangaInfo">
+                <div class="name" id="mangaName"><div class="skeleton"></div></div>
+                <div class="chapter" id="chapterName"></div>
+            </div>
+            <div class="settings">
+                <button id="settings-btn" class="btn">Settings</button>
+            </div>
+        </nav>
+        <aside class="sidebar chList" id="sidebar">
+            <div class="closeSideBar"><button class="opt" onclick="document.getElementById('sidebar').style.display = 'none';">&times;</button></div>
+            <div id="chList"></div>
+        </aside>
+            <main class="reader">
+              <div id="manga-container" class="manga ltr">
+                <!-- Manga images will be dynamically loaded here -->
+              </div>
+              <div class="controls">
+                <button id="prev-btn" class="btn">&LeftTriangle;</button>
+                <button id="next-btn" class="btn">&RightTriangle;</button>
+              </div>
+            </main>
+
+        <div class="modal hidden" id="settings-modal">
+          <div class="modal-content">
+            <h2>Settings</h2>
+            <label for="reader-type">Reader Type:</label>
+            <select id="reader-type">
+              <option value="ltr">Left-to-Right</option>
+              <option value="rtl">Right-to-Left</option>
+            </select>
+            <button id="save-settings">Save</button>
+          </div>
+        </div>
+
+
+
+        <!-- scripts -->
+        <script >
+        const API_URL = "https://animark-nato.vercel.app"
+
+        var params = new URLSearchParams(window.location.search);
+        var mangaId = params.get("manga");
+        var chapter = parseInt(params.get("chapter")) || 1;
+        const name = document.getElementById("mangaName");
+        const currentChapter = document.getElementById("chapterName");
+        const chapterListContainer = document.getElementById("chList");
+
+
+        async function getMangaInfo() {
+          fetch(`${API_URL}/info/${mangaId}`)
+            .then((res) => res.json())
+            .then((data) => {
+              const title = data.title;
+              const totalChapters = data.chapters[0].chapterNumber;
+
+              name.innerHTML = title;
+              currentChapter.innerHTML = `chapter ${chapter}`;
+            });
+        }
+
+
+          // getMangaInfo()
+          //
+
+          function toggleDropdown(dropdown) {
+              const content = dropdown.querySelector(".dropdown-content");
+              content.style.display =
+                  content.style.display === "none" || !content.style.display
+                      ? "block"
+                      : "none";
+          }
+        async function getSidebarDrops() {
+          try {
+              const response = await fetch(
+                  `${API_URL}/info/${mangaId}`,
+              );
+              if (!response.ok)
+                  throw new Error("Failed to fetch manga info");
+              const data = await response.json();
+
+              // mangaTitleContainer.textContent = data.title;
+              chapters = data.chapters;
+
+              const totalChapters = chapters.length;
+              const groupSize = 10;
+
+              for (let i = 0; i < totalChapters; i += groupSize) {
+                  const start = i + 1;
+                  const end = Math.min(i + groupSize, totalChapters);
+
+                  const dropdown = document.createElement("div");
+                  dropdown.classList.add("dropdown");
+
+                  const button = document.createElement("button");
+                  button.textContent = `Chapters ${start}-${end}`;
+                  button.onclick = () => toggleDropdown(dropdown);
+
+                  const dropdownContent = document.createElement("div");
+                  dropdownContent.classList.add("dropdown-content");
+
+                  for (let j = start; j <= end; j++) {
+                      const chapterButton =
+                          document.createElement("button");
+                      chapterButton.textContent = `Chapter ${j}`;
+                      chapterButton.onclick = () => window.location.href = `./index.html?manga=${mangaId}&chapter=${j}`;
+                      dropdownContent.appendChild(chapterButton);
+                  }
+
+                  dropdown.appendChild(button);
+                  dropdown.appendChild(dropdownContent);
+                  chapterListContainer.appendChild(dropdown);
+              }
+          } catch (error) {
+              console.error("Error fetching manga info:", error.message);
+          }
+      }
+          document.addEventListener("DOMContentLoaded", (event) => {
+            getSidebarDrops()
+            getMangaInfo()
+          });
+        </script>
+
+        <!-- temp -->
+        <script>
+        const mangaContainer = document.getElementById('manga-container');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const saveSettingsBtn = document.getElementById('save-settings');
+        const readerTypeSelect = document.getElementById('reader-type'); // Dropdown selector
+        let currentPage = 0;
+        let chapterImages = [];
+        let chapterImagesRTL = [];
+        var params = new URLSearchParams(window.location.search);
+        var mangaId = params.get("manga");
+        var chapter = parseInt(params.get("chapter")) || 1;
+
+
+        // Fetch and display images for the current chapter
+        function loadManga(chapter) {
+          fetch(`https://animark-nato.vercel.app/read/${mangaId}/${parseInt(params.get("chapter")) || 1}`)
+            .then((response) => response.json())
+            .then((data) => {
+              chapterImages = data.pages;
+              const readerType = localStorage.getItem('readerType') || 'ltr';
+              currentPage = readerType === 'rtl' ? chapterImages.length - 1 : 0;
+              if(readerType === "rtl"){
+                chapterImagesRTL = chapterImages.reverse()
+              }
+              updateMangaDisplay();
+            })
+            .catch((error) => console.error(`Failed to load chapter ${chapter}:`, error));
+        }
+
+        // Update the display based on the current page
+        function updateMangaDisplay() {
+          mangaContainer.innerHTML = ''; // Clear container
+          const img = document.createElement('img');
+          if(readerType === "rtl"){
+            img.src = `https://animark-nato.vercel.app${chapterImagesRTL[currentPage]}`;
+          }else{
+            img.src = `https://animark-nato.vercel.app${chapterImages[currentPage]}`;
+          }
+          img.alt = `Chapter ${currentChapter} - Page ${currentPage + 1}`;
+          img.classList.add('slideshow-image');
+          mangaContainer.appendChild(img);
+
+          toggleButtons(true);
+        }
+
+        // Toggle visibility of navigation buttons
+        function toggleButtons(show) {
+          prevBtn.style.display = show ? 'inline-block' : 'none';
+          nextBtn.style.display = show ? 'inline-block' : 'none';
+        }
+
+        // Event listeners
+        prevBtn.addEventListener('click', () => {
+          const readerType = localStorage.getItem('readerType') || 'ltr';
+          if (readerType === 'ltr' && currentPage > 0) {
+            currentPage--;
+          }else if (readerType === 'rtl' && currentPage > 0) {
+            currentPage--;
+          }else {
+            window.location.href = `./index.html?manga=${mangaId}&chapter=${chapter + 1}`
+          }
+          updateMangaDisplay();
+        });
+
+        nextBtn.addEventListener('click', () => {
+          const readerType = localStorage.getItem('readerType') || 'ltr';
+          if (readerType === 'ltr' && currentPage < chapterImages.length - 1) {
+            currentPage++;
+          }          else if (readerType === 'rtl' && currentPage < chapterImages.length - 1) {
+            currentPage++;
+          }
+          else {
+            window.location.href = `./index.html?manga=${mangaId}&chapter=${chapter + 1}`
+
+            // loadManga(chIn);
+          }
+          updateMangaDisplay();
+        });
+
+        settingsBtn.addEventListener('click', () => {
+          settingsModal.classList.remove('hidden');
+        });
+
+        saveSettingsBtn.addEventListener('click', () => {
+          const selectedType = readerTypeSelect.value;
+          localStorage.setItem('readerType', selectedType);
+          loadManga(currentChapter);
+          settingsModal.classList.add('hidden');
+        });
+
+        // Initialize
+          const readerType = localStorage.getItem('readerType') || 'ltr';
+          readerTypeSelect.value = readerType; // Set dropdown value
+          loadManga(currentChapter);
+
+        </script>
+
+    </body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Aniteams&REG;manga</title>
+        <link rel="stylesheet" href="./main.css" />
+        <link rel="stylesheet" href="./common.css" />
+
+    </head>
+    <body>
+        <nav class="navbar" class="varela-round-reular">
+            <div class="logo">
+                <img src="../logo.png" />
+            </div>
+            <form class="search-container" action="./ks.html" >
+                    <input
+                        type="text"
+                        class="search-bar"
+                        placeholder="Search..."
+                        oninput="handleSearch(this)"
+                        id="query" name="query"
+                    />
+                <div class="filter-cont" id="filter-container">
+                    <div class="filter-list" id="filterList">
+                    </div>
+                </div>
+            </form>
+            </div>
+            <div class="end">
+                <a class="goHome varela-round-regular" href="../desktop.html">
+                    Anime
+                </a>
+            </div>
+        </nav>
+        <main style="padding: 2.5vh;">
+            <div class="topManga varela-round-regular" id="topManga">
+                <h1>Top Manga</h1>
+                <div id="topCardContainer" class="cardContainer"></div>
+            </div>
+        </main>
+    </body>
+    <script>
+    const filterList = document.getElementById("filterList");
+    const filterContainer = document.getElementById("filterContainer");
+
+
+    async function handleSearch(input) {
+      const query = input.value.trim();
+      filterList.innerHTML = ""; // Clear previous results
+      if (query === "") {
+        filterContainer.style.display = "none";
+        return;
+      }
+
+      // Update URL
+      const newUrl = `https://animark-nato.vercel.app/search?query=${encodeURIComponent(query)}`;
+      // window.history.replaceState(null, "", newUrl);
+
+      try {
+        const response = await fetch(`https://animark-nato.vercel.app/search?query=${query}`);
+        const data = await response.json();
+
+        // Show only the top 5 results
+        const results = data.results.slice(0, 5);
+
+        if (results.length > 0) {
+          filterList.style.display = "block";
+          results.forEach((result) => {
+            const item = document.createElement("div");
+            item.className = "filter-item";
+            item.onclick = () => window.open(result.link.trim('https://chapmanganato.to/'),);
+
+            const image = document.createElement("img");
+            image.src = result.image;
+            image.alt = result.title;
+
+            const textContainer = document.createElement("div");
+            const title = document.createElement("div");
+            title.className = "filter-item-title";
+            title.textContent = result.title;
+
+            const latestChapter = document.createElement("div");
+            latestChapter.className = "filter-item-latest";
+
+            textContainer.appendChild(title);
+            item.appendChild(image);
+            item.appendChild(textContainer);
+
+            filterList.appendChild(item);
+          });
+        } else {
+          filterList.style.display = "none";
+        }
+      } catch (error) {
+        console.error("Error fetching search results:", error);
+        filterList.style.display = "none";
+      }
+    }
+
+    document.addEventListener("click", (event) => {
+      if (!document.querySelector(".search-container").contains(event.target)) {
+        filterList.style.display = "none";
+      }
+    });
+    </script>
+    <script src="./mangaSlider.js" ></script>
+</html>

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Manga Reader</title>
+        <style>
+            body {
+                margin: 0;
+                font-family: Arial, sans-serif;
+                background-color: #121212;
+                color: #ffffff;
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                overflow: hidden;
+            }
+            .top-bar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px;
+                background-color: #1f1f1f;
+                border-bottom: 1px solid #333;
+            }
+            .top-bar select,
+            .top-bar button {
+                padding: 8px;
+                background-color: #333;
+                color: #fff;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .top-bar button:hover {
+                background-color: #444;
+            }
+            .reader {
+                flex: 1;
+                overflow-y: auto;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-direction: column;
+            }
+            .reader .images {
+                display: flex;
+                flex-wrap: nowrap;
+                justify-content: center;
+                gap: 10px;
+            }
+            .reader .images img {
+                max-width: 100%;
+                max-height: 80vh;
+                border-radius: 8px;
+                object-fit: contain;
+            }
+            .settings-modal {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background-color: #1f1f1f;
+                border-radius: 8px;
+                padding: 20px;
+                display: none;
+                flex-direction: column;
+                gap: 10px;
+                z-index: 1000;
+                width: 300px;
+            }
+            .settings-modal h2 {
+                margin: 0;
+                color: #ffcc00;
+            }
+            .settings-modal label {
+                display: block;
+                margin-bottom: 5px;
+            }
+            .settings-modal input[type="checkbox"] {
+                margin-right: 10px;
+            }
+            .overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 100000;
+                display: none;
+            }
+            .hidden {
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="top-bar">
+            <select id="readerMode">
+                <option value="long-strip">Long Strip</option>
+                <option value="paged-ltr">Paged (LTR)</option>
+                <option value="paged-rtl">Paged (RTL)</option>
+                <option value="double-page">Double Page</option>
+            </select>
+            <button id="settingsButton">Settings</button>
+        </div>
+        <div class="reader">
+            <div class="images" id="imagesContainer"></div>
+        </div>
+        <div class="overlay" id="overlay"></div>
+        <div class="settings-modal hidden" id="settingsModal">
+            <h2>Settings</h2>
+            <div>
+                <label>
+                    <input type="checkbox" id="lazyLoading" /> Enable Lazy
+                    Loading
+                </label>
+            </div>
+            <button id="saveSettings">Save</button>
+        </div>
+
+        <script>
+            const params = new URLSearchParams(window.location.search);
+            const mangaId = params.get("manga");
+            const chapterNumber = parseInt(params.get("chapter")) || 1;
+
+            const imagesContainer = document.getElementById("imagesContainer");
+            const readerModeSelect = document.getElementById("readerMode");
+            const settingsButton = document.getElementById("settingsButton");
+            const settingsModal = document.getElementById("settingsModal");
+            const overlay = document.getElementById("overlay");
+            const lazyLoadingCheckbox = document.getElementById("lazyLoading");
+
+            let lazyLoading = false;
+
+            async function fetchChapterImages() {
+                try {
+                    const response = await fetch(
+                        `https://animark-nato.vercel.app/read/${mangaId}/${chapterNumber}`,
+                    );
+                    if (!response.ok)
+                        throw new Error("Failed to fetch chapter images");
+                    const data = await response.json();
+                    renderImages(data.pages);
+                } catch (error) {
+                    console.error(
+                        "Error fetching chapter images:",
+                        error.message,
+                    );
+                }
+            }
+
+            function renderImages(pages) {
+                imagesContainer.innerHTML = "";
+                const mode = readerModeSelect.value;
+
+                if (mode === "long-strip") {
+                    imagesContainer.style.flexDirection = "column";
+                } else {
+                    imagesContainer.style.flexDirection =
+                        mode === "paged-rtl" ? "row-reverse" : "row";
+                }
+
+                pages.forEach((pageUrl, index) => {
+                    const img = document.createElement("img");
+                    img.src = lazyLoading
+                        ? ""
+                        : `https://animark-nato.vercel.app${pageUrl}`;
+                    img.dataset.src = `https://animark-nato.vercel.app${pageUrl}`;
+                    img.classList.add("manga-image");
+
+                    if (lazyLoading) {
+                        img.loading = "lazy";
+                    }
+
+                    img.onload = () => {
+                        const isLandscape =
+                            img.naturalWidth > img.naturalHeight;
+                        if (isLandscape) {
+                            img.style.maxWidth = "100%";
+                            img.style.maxHeight = "80vh";
+                        }
+                    };
+
+                    imagesContainer.appendChild(img);
+                });
+
+                if (mode === "double-page") {
+                    applyDoublePageView();
+                }
+            }
+
+            function applyDoublePageView() {
+                const images = Array.from(
+                    imagesContainer.querySelectorAll("img"),
+                );
+                imagesContainer.innerHTML = "";
+                for (let i = 0; i < images.length; i += 2) {
+                    const container = document.createElement("div");
+                    container.style.display = "flex";
+                    container.style.justifyContent = "center";
+                    container.style.gap = "10px";
+
+                    container.appendChild(images[i]);
+                    if (images[i + 1]) {
+                        container.appendChild(images[i + 1]);
+                    }
+
+                    imagesContainer.appendChild(container);
+                }
+            }
+
+            settingsButton.addEventListener("click", () => {
+                settingsModal.classList.remove("hidden");
+                overlay.classList.remove("hidden");
+            });
+
+            overlay.addEventListener("click", () => {
+                settingsModal.classList.add("hidden");
+                overlay.classList.add("hidden");
+            });
+
+            document
+                .getElementById("saveSettings")
+                .addEventListener("click", () => {
+                    lazyLoading = lazyLoadingCheckbox.checked;
+                    settingsModal.classList.add("hidden");
+                    overlay.classList.add("hidden");
+                });
+
+            readerModeSelect.addEventListener("change", fetchChapterImages);
+
+            if (mangaId) {
+                fetchChapterImages();
+            } else {
+                imagesContainer.innerHTML =
+                    "<p>No manga ID provided in URL.</p>";
+            }
+        </script>
+    </body>
+</html>
